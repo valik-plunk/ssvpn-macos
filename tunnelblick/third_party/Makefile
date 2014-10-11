@@ -1,11 +1,12 @@
 # This Makefile builds all the third_party code
 # It shouldn't be called by anything other than automated scripts
 
-CC=gcc
+CC=clang
 MACOSX_DEPLOYMENT_TARGET=10.6
-OSX_VERSION=10.8
+OSX_VERSION=10.9
 #looking for xcode sdk in a new folder for sdks (xcode.app/...)
-SDKROOT=`xcode-select -print-path`/Platforms/MacOSX.platform/Developer/SDKs/MacOSX$(OSX_VERSION).sdk
+SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk
+TARGET_ARCHS=i386 x86_64
 #SDKROOT=/Developer/SDKs/MacOSX10.6.sdk
 
 CFLAGS=-isysroot $(SDKROOT) -Os -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
@@ -18,6 +19,7 @@ OPENSSL_SRC_DIR = openssl-1.0.1c
 OPENSSL_BUILD_DIR = $(TOPDIR)/$(BUILD_DIR)/$(OPENSSL_SRC_DIR)
 OPENSSL_DEST_DIR = $(TOPDIR)/$(BUILD_DIR)/staging/$(OPENSSL_SRC_DIR)
 OPENSSL_TARGET_FILES = $(foreach f, libcrypto.a libssl.a, $(OPENSSL_DEST_DIR)/lib/$(f))
+OPENSSL_TARGET_ARCHS=darwin-i386-cc darwin64-x86_64-cc
 
 PROJ_BUILD_DIRS = $(foreach proj, $(THIRD_PARTY_PROJS), $($(proj)_BUILD_DIR))
 
@@ -38,8 +40,10 @@ $(PROJ_BUILD_DIRS):
 	mkdir -p $@;
 	cd $@ && /usr/X11/bin/lndir $(TOPDIR)/$$(basename $@);
 
-openssl-patch: $(OPENSSL_BUILD_DIR)
-	@cd $(OPENSSL_BUILD_DIR); \
+openssl-patch: 
+	mkdir -p $(OPENSSL_BUILD_DIR)
+	cd $(OPENSSL_BUILD_DIR); \
+	/usr/X11/bin/lndir $(TOPDIR)/$$(basename $(OPENSSL_BUILD_DIR)); \
 	if [ -d "$(TOPDIR)/patches/openssl" ]; then \
 		for patchfile in $(TOPDIR)/patches/openssl/*.diff; do \
 			patch -p0 -N --dry-run -i $$patchfile > /dev/null; \
@@ -47,30 +51,34 @@ openssl-patch: $(OPENSSL_BUILD_DIR)
 				patch -p0 -N -i $$patchfile; \
 			fi \
 		done \
-	fi
+	fi; \
+	cd $(TOPDIR);
 
 openssl: openssl-patch
-	@for a in darwin-i386-cc; do\
-		echo Configure OpenSSL for $$a; \
+	for a in $(OPENSSL_TARGET_ARCHS); do\
+		@echo Configure OpenSSL for $$a; \
 		cd $(OPENSSL_BUILD_DIR); \
-		echo Forcefully be clean; \
+		@echo Forcefully be clean; \
 		$(MAKE) clean; \
-		CC=$(CC) CFLAGS="$(CFLAGS)" ./Configure no-shared zlib no-krb5 --prefix="$(OPENSSL_DEST_DIR)/$$a" $$a; \
-		echo Build OpenSSL for $$a; \
+		CC=$(CC) CFLAGS="$(CFLAGS)" ./Configure no-shared zlib no-zlib-dynamic no-asm no-krb5 --prefix="$(OPENSSL_DEST_DIR)/$$a" $$a; \
+		@echo Build OpenSSL for $$a; \
 		$(MAKE) build_libs build_apps openssl.pc libssl.pc libcrypto.pc; \
-		echo Install to $(OPENSSL_DEST_DIR)/$$a; \
+		@echo Install to $(OPENSSL_DEST_DIR)/$$a; \
 		$(MAKE) install_sw; \
 		cd -; \
 	done
+	ditto -v $(BUILD_DIR)/staging/$(OPENSSL_SRC_DIR)/darwin64-x86_64-cc/include $(OPENSSL_DEST_DIR)/include/x86_64
 	ditto -v $(BUILD_DIR)/staging/$(OPENSSL_SRC_DIR)/darwin-i386-cc/include $(OPENSSL_DEST_DIR)/include/i386
-	mkdir -p $(OPENSSL_DEST_DIR)/lib; \
+	#ditto -v $(BUILD_DIR)/staging/$(OPENSSL_SRC_DIR)/darwin-ppc-cc/include $(OPENSSL_DEST_DIR)/include/ppc
+	mkdir -p $(OPENSSL_DEST_DIR)/lib
 	for t in $(OPENSSL_TARGET_FILES); do \
 		lipo $(BUILD_DIR)/staging/$(OPENSSL_SRC_DIR)/darwin*/lib/$$(basename $$t) -create -output $$t; \
+		ranlib $$t; \
 	done
 	rm -rf $(BUILD_DIR)/staging/$(OPENSSL_SRC_DIR)/darwin*
 	
 pkcs11-helper::
-	@for a in i386; do \
+	@for a in $(TARGET_ARCHS); do \
 		echo Configure PKCS11-Helper for $$a; \
 		cd $(PKCS11_DIR); \
 		echo Forcefully be clean; \
@@ -84,14 +92,14 @@ pkcs11-helper::
 	done
 	mkdir -p $(PKCS11_DIR)/staging/lib
 	lipo $(PKCS11_DIR)/staging_*/lib/libpkcs11-helper.a -create -output $(PKCS11_DIR)/staging/lib/libpkcs11-helper.a
-	cp  $(PKCS11_DIR)/staging_i386/lib/libpkcs11-helper.la  $(PKCS11_DIR)/staging/lib/ 
+	#cp  $(PKCS11_DIR)/staging/lib/libpkcs11-helper.a  $(PKCS11_DIR)/staging/lib/ 
 
 pkcs11-helper-clean:
 	$(MAKE) -C $(PKCS11_DIR) clean
 	rm -rf $(PKCS11_DIR)/staging*
 
 lzo::
-	@for a in i386; do \
+	@for a in $(TARGET_ARCHS); do \
 		echo Configure LZO for $$a; \
 		cd $(LZO_DIR); \
 		echo Forcefully be clean; \
@@ -107,7 +115,7 @@ lzo::
 	# Use lipo to create a universal library
 	mkdir -p $(LZO_DIR)/staging/lib
 	lipo $(LZO_DIR)/staging_*/lib/liblzo2.a -create -output $(LZO_DIR)/staging/lib/liblzo2.a
-	cp  $(LZO_DIR)/staging_i386/lib/liblzo2.la  $(LZO_DIR)/staging/lib/ 
+	#cp  $(LZO_DIR)/staging/lib/liblzo2.a  $(LZO_DIR)/staging/lib/ 
 
 lzo-clean:
 	$(MAKE) -C $(LZO_DIR) clean
@@ -127,7 +135,7 @@ openvpn-patch:
 	
 openvpn: lzo openssl pkcs11-helper openvpn-patch
 	for openvpndir in `ls openvpn`; do \
-		for a in i386; do \
+		for a in $(TARGET_ARCHS); do \
 			cd openvpn/$$openvpndir/openvpn; \
 			$(MAKE) clean; \
 			autoreconf -i -v; \
