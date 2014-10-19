@@ -6,7 +6,7 @@ MACOSX_DEPLOYMENT_TARGET=10.6
 OSX_VERSION=10.9
 #looking for xcode sdk in a new folder for sdks (xcode.app/...)
 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk
-TARGET_ARCHS=i386 x86_64
+TARGET_ARCHS=i386
 #SDKROOT=/Developer/SDKs/MacOSX10.6.sdk
 
 CFLAGS=-isysroot $(SDKROOT) -Os -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
@@ -19,7 +19,7 @@ OPENSSL_SRC_DIR = openssl-1.0.1c
 OPENSSL_BUILD_DIR = $(TOPDIR)/$(BUILD_DIR)/$(OPENSSL_SRC_DIR)
 OPENSSL_DEST_DIR = $(TOPDIR)/$(BUILD_DIR)/staging/$(OPENSSL_SRC_DIR)
 OPENSSL_TARGET_FILES = $(foreach f, libcrypto.a libssl.a, $(OPENSSL_DEST_DIR)/lib/$(f))
-OPENSSL_TARGET_ARCHS=darwin-i386-cc darwin64-x86_64-cc
+OPENSSL_TARGET_ARCHS=darwin-i386-cc
 
 PROJ_BUILD_DIRS = $(foreach proj, $(THIRD_PARTY_PROJS), $($(proj)_BUILD_DIR))
 
@@ -67,7 +67,7 @@ openssl: openssl-patch
 		$(MAKE) install_sw; \
 		cd -; \
 	done
-	ditto -v $(BUILD_DIR)/staging/$(OPENSSL_SRC_DIR)/darwin64-x86_64-cc/include $(OPENSSL_DEST_DIR)/include/x86_64
+#	ditto -v $(BUILD_DIR)/staging/$(OPENSSL_SRC_DIR)/darwin64-x86_64-cc/include $(OPENSSL_DEST_DIR)/include/x86_64
 	ditto -v $(BUILD_DIR)/staging/$(OPENSSL_SRC_DIR)/darwin-i386-cc/include $(OPENSSL_DEST_DIR)/include/i386
 	#ditto -v $(BUILD_DIR)/staging/$(OPENSSL_SRC_DIR)/darwin-ppc-cc/include $(OPENSSL_DEST_DIR)/include/ppc
 	mkdir -p $(OPENSSL_DEST_DIR)/lib

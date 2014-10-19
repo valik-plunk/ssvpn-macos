@@ -9,17 +9,37 @@
 # initialized.
 #
 # Created by: Nick Williams (using original code and parts of old Tblk scripts)
-# Modifed by: Jonathan Bullard for Mountain Lion
+# Modifed by: Jonathan K. Bullard for Mountain Lion
 # 
 # ******************************************************************************************************************
 
 
 ##########################################################################################
 # @param String message - The message to log
-readonly LOG_MESSAGE_COMMAND=$(basename "${0}")
 logMessage()
 {
-	echo "$(date '+%a %b %e %T %Y') *SurfsafeVPN $LOG_MESSAGE_COMMAND: "${@} >> "${SCRIPT_LOG_FILE}"
+	echo "${@}"
+}
+
+##########################################################################################
+# @param String message - The message to log
+logDebugMessage()
+{
+    if ${ARG_EXTRA_LOGGING} ; then
+        echo "${@}"
+    fi
+}
+
+##########################################################################################
+# log a change to a setting
+# @param String filters - empty, or one or two '#' if not performing the change
+# @param String name of setting that is being changed
+# @param String new value
+logChange()
+{
+	if [ "$1" = "" ] ; then
+		echo "Set $2 to $3"
+	fi
 }
 
 ##########################################################################################
@@ -33,6 +53,7 @@ trim()
 # @param String[] dnsServers - The name servers to use
 # @param String domainName - The domain name to use
 # @param \optional String[] winsServers - The SMB servers to use
+# @param \optional String[] searchDomains - The search domains to use
 #
 # Throughout this routine:
 #            MAN_ is a prefix for manually set parameters
@@ -100,6 +121,7 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 
 	declare -a vDNS=("${!1}")
 	declare -a vSMB=("${!3}")
+	declare -a vSD=("${!4}")
 
 	if [ ${#vDNS[*]} -eq 0 ] ; then
 		readonly DYN_DNS_SA=""
@@ -113,24 +135,29 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 		readonly DYN_SMB_WA="${!3}"
 	fi
 
+	if [ ${#vSD[*]} -eq 0 ] ; then
+		readonly DYN_DNS_SD=""
+	else
+		readonly DYN_DNS_SD="${!4}"
+	fi
+	
 	DYN_DNS_DN="$2"
 	
 	# The variables
-	#     DYN_DNS_SD
 	#     DYN_SMB_WG
 	#     DYN_SMB_NN
 	# are left empty. There isn't a way for OpenVPN to set them.
 	
-	logMessage "DEBUG:"
-	logMessage "DEBUG: MAN_DNS_CONFIG = ${MAN_DNS_CONFIG}"
-	logMessage "DEBUG: MAN_SMB_CONFIG = ${MAN_SMB_CONFIG}"
-	logMessage "DEBUG:"
-	logMessage "DEBUG: CUR_DNS_CONFIG = ${CUR_DNS_CONFIG}"
-	logMessage "DEBUG: CUR_SMB_CONFIG = ${CUR_SMB_CONFIG}"
-	logMessage "DEBUG:"
-	logMessage "DEBUG:"
-	logMessage "DEBUG: DYN_DNS_DN = ${DYN_DNS_DN}; DYN_DNS_SA = ${DYN_DNS_SA}; DYN_DNS_SD = ${DYN_DNS_SD}"
-	logMessage "DEBUG: DYN_SMB_NN = ${DYN_SMB_NN}; DYN_SMB_WG = ${DYN_SMB_WG}; DYN_SMB_WA = ${DYN_SMB_WA}"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: MAN_DNS_CONFIG = ${MAN_DNS_CONFIG}"
+	logDebugMessage "DEBUG: MAN_SMB_CONFIG = ${MAN_SMB_CONFIG}"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: CUR_DNS_CONFIG = ${CUR_DNS_CONFIG}"
+	logDebugMessage "DEBUG: CUR_SMB_CONFIG = ${CUR_SMB_CONFIG}"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: DYN_DNS_DN = ${DYN_DNS_DN}; DYN_DNS_SA = ${DYN_DNS_SA}; DYN_DNS_SD = ${DYN_DNS_SD}"
+	logDebugMessage "DEBUG: DYN_SMB_NN = ${DYN_SMB_NN}; DYN_SMB_WG = ${DYN_SMB_WG}; DYN_SMB_WA = ${DYN_SMB_WA}"
 	
 # Set up the MAN_... variables to contain manual network settings
 
@@ -169,16 +196,16 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 
 	set -e # resume abort on error
 
-	logMessage "DEBUG:"
-	logMessage "DEBUG: MAN_DNS_DN = ${MAN_DNS_DN}; MAN_DNS_SA = ${MAN_DNS_SA}; MAN_DNS_SD = ${MAN_DNS_SD}"
-	logMessage "DEBUG: MAN_SMB_NN = ${MAN_SMB_NN}; MAN_SMB_WG = ${MAN_SMB_WG}; MAN_SMB_WA = ${MAN_SMB_WA}"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: MAN_DNS_DN = ${MAN_DNS_DN}; MAN_DNS_SA = ${MAN_DNS_SA}; MAN_DNS_SD = ${MAN_DNS_SD}"
+	logDebugMessage "DEBUG: MAN_SMB_NN = ${MAN_SMB_NN}; MAN_SMB_WG = ${MAN_SMB_WG}; MAN_SMB_WA = ${MAN_SMB_WA}"
 	
 # Set up the CUR_... variables to contain the current network settings (from manual or DHCP, as arbitrated by OS X
 
 	set +e # "grep" will return error status (1) if no matches are found, so don't fail on individual errors
 	
 	if echo "${CUR_DNS_CONFIG}" | grep -q "DomainName" ; then
-		readonly CUR_DNS_DN="$(trim "$( echo "${CUR_DNS_CONFIG}" | sed -e 's/^.*DomainName[^{]*{[[:space:]]*\([^}]*\)[[:space:]]*}.*$/\1/g' )")"
+		readonly CUR_DNS_DN="$(trim "$( echo "${CUR_DNS_CONFIG}" | sed -e 's/^.*DomainName : \([^[:space:]]*\).*$/\1/g' )")"
 	else
 		readonly CUR_DNS_DN="";
 	fi
@@ -210,9 +237,9 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 
 	set -e # resume abort on error
 
-	logMessage "DEBUG:"
-	logMessage "DEBUG: CUR_DNS_DN = ${CUR_DNS_DN}; CUR_DNS_SA = ${CUR_DNS_SA}; CUR_DNS_SD = ${CUR_DNS_SD}"
-	logMessage "DEBUG: CUR_SMB_NN = ${CUR_SMB_NN}; CUR_SMB_WG = ${CUR_SMB_WG}; CUR_SMB_WA = ${CUR_SMB_WA}"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: CUR_DNS_DN = ${CUR_DNS_DN}; CUR_DNS_SA = ${CUR_DNS_SA}; CUR_DNS_SD = ${CUR_DNS_SD}"
+	logDebugMessage "DEBUG: CUR_SMB_NN = ${CUR_SMB_NN}; CUR_SMB_WG = ${CUR_SMB_WG}; CUR_SMB_WA = ${CUR_SMB_WA}"
 
 # set up the FIN_... variables with what we want to set things to
 
@@ -275,12 +302,12 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 				else
 						readonly FIN_DNS_SA="${DYN_DNS_SA}"
 				fi
-					logMessage "ServerAddresses were aggregated because running on OS X 10.4 or 10.5"
+					logMessage "Aggregating ServerAddresses because running on OS X 10.4 or 10.5"
 					;;
 				* )
 					# Do nothing - in 10.6 and higher -- we don't aggregate our configurations, apparently
 					readonly FIN_DNS_SA="${DYN_DNS_SA}"
-					logMessage "ServerAddresses were not aggregated because running on OS X 10.6 or higher"
+					logMessage "Not aggregating ServerAddresses because running on OS X 10.6 or higher"
 				;;
 		esac
 	fi
@@ -310,12 +337,12 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 				else
 					readonly FIN_SMB_WA="${DYN_SMB_WA}"
 				fi
-				logMessage "WINSAddresses were aggregated because running on OS X 10.4 or 10.5"
+				logMessage "Aggregating WINSAddresses because running on OS X 10.4 or 10.5"
 				;;
 			* )
 				# Do nothing - in 10.6 and higher -- we don't aggregate our configurations, apparently
 				readonly FIN_SMB_WA="${DYN_SMB_WA}"
-				logMessage "WINSAddresses were not aggregated because running on OS X 10.6 or higher"
+				logMessage "Not aggregating WINSAddresses because running on OS X 10.6 or higher"
 				;;
 		esac
 		fi
@@ -333,27 +360,68 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 	# NEW BEHAVIOR (done if ARG_PREPEND_DOMAIN_NAME is "true"):
 	#
 	#     if SearchDomains was entered manually, we do nothing
-	#     else we PREpend DomainName to the existing SearchDomains
+	#     else we  PREpend new SearchDomains (if any) to the existing SearchDomains (NOT replacing them)
+	#          and PREpend DomainName to that
+	#
+	#              (done if ARG_PREPEND_DOMAIN_NAME is "false" and there are new SearchDomains from DOMAIN-SEARCH):
+	#
+	#     if SearchDomains was entered manually, we do nothing
+	#     else we  PREpend any new SearchDomains to the existing SearchDomains (NOT replacing them)
 	#
 	#     This behavior is meant to behave like Linux with Network Manager and Windows
 	
 	if "${ARG_PREPEND_DOMAIN_NAME}" ; then
 		if [ "${MAN_DNS_SD}" = "" ] ; then
-			logMessage "Prepended '${FIN_DNS_DN}' to search domains '${CUR_DNS_SD}' because the search domains were not set manually and 'Prepend domain name to search domains' was selected"
-			readonly FIN_DNS_SD="$(trim "${FIN_DNS_DN}" "${CUR_DNS_SD}")"
+			if [ "${DYN_DNS_SD}" != "" ] ; then
+                if ! echo "${CUR_DNS_SD}" | tr ' ' '\n' | grep -q "${DYN_DNS_SD}" ; then
+                    logMessage "Prepending '${DYN_DNS_SD}' to search domains '${CUR_DNS_SD}' because the search domains were not set manually and 'Prepend domain name to search domains' was selected"
+                    readonly TMP_DNS_SD="$(trim "${DYN_DNS_SD}" "${CUR_DNS_SD}")"
 	else
-			logMessage "Did not prepend '${FIN_DNS_DN}' to search domains '${CUR_DNS_SD}' because the search domains were set manually and 'Prepend domain name to search domains' was selected"
+                    logMessage "Not prepending '${DYN_DNS_SD}' to search domains '${CUR_DNS_SD}' because it is already there"
+                    readonly TMP_DNS_SD="${CUR_DNS_SD}"
+                fi
+            else
+				readonly TMP_DNS_SD="${CUR_DNS_SD}"
+			fi
+			if [ "${FIN_DNS_DN}" != "" -a  "${FIN_DNS_DN}" != "localdomain" ] ; then
+                if ! echo "${TMP_DNS_SD}" | tr ' ' '\n' | grep -q "${FIN_DNS_DN}" ; then
+                    logMessage "Prepending '${FIN_DNS_DN}' to search domains '${TMP_DNS_SD}' because the search domains were not set manually and 'Prepend domain name to search domains' was selected"
+                    readonly FIN_DNS_SD="$(trim "${FIN_DNS_DN}" "${TMP_DNS_SD}")"
+                else
+                    logMessage "Not prepending '${FIN_DNS_DN}' to search domains '${TMP_DNS_SD}' because it is already there"
+                    readonly FIN_DNS_SD="${TMP_DNS_SD}"
+                fi
+            else
+				readonly FIN_DNS_SD="${TMP_DNS_SD}"
+			fi
+		else
+			if [ "${DYN_DNS_SD}" != "" ] ; then
+				logMessage "Not prepending '${DYN_DNS_SD}' to search domains '${CUR_DNS_SD}' because the search domains were set manually"
+			fi
+            if [ "${FIN_DNS_DN}" != "" ] ; then
+                logMessage "Not prepending domain '${FIN_DNS_DN}' to search domains '${CUR_DNS_SD}' because the search domains were set manually"
+            fi
 			readonly FIN_DNS_SD="${CUR_DNS_SD}"
 	fi
 	else
-	case "${OSVER}" in
-			10.4 | 10.5 )
-				if echo "${MAN_DNS_SD}" | tr ' ' '\n' | grep -q "${FIN_DNS_DN}" ; then
-					logMessage "Did not append '${FIN_DNS_DN}' to search domains '${CUR_DNS_SD}' because it is already in the search domains that were set manually and 'Prepend domain name to search domains' was not selected"
+		if [ "${DYN_DNS_SD}" != "" ] ; then
+			if [ "${MAN_DNS_SD}" = "" ] ; then
+				logMessage "Prepending '${DYN_DNS_SD}' to search domains '${CUR_DNS_SD}' because the search domains were not set manually but were set via OpenVPN and 'Prepend domain name to search domains' was not selected"
+				readonly FIN_DNS_SD="$(trim "${DYN_DNS_SD}" "${CUR_DNS_SD}")"
+            else
+                logMessage "Not prepending '${DYN_DNS_SD}' to search domains '${CUR_DNS_SD}' because the search domains were set manually"
 					readonly FIN_DNS_SD="${CUR_DNS_SD}"
+			fi
 			else
-					logMessage "Appended '${FIN_DNS_DN}' to search domains '${CUR_DNS_SD}' that were set manually because running under OS X 10.4 or 10.5 and 'Prepend domain name to search domains' was not selected"
+            if [ "${FIN_DNS_DN}" != "" -a "${FIN_DNS_DN}" != "localdomain" ] ; then
+                case "${OSVER}" in
+                    10.4 | 10.5 )
+                        if ! echo "${MAN_DNS_SD}" | tr ' ' '\n' | grep -q "${FIN_DNS_DN}" ; then
+                            logMessage "Appending '${FIN_DNS_DN}' to search domains '${CUR_DNS_SD}' that were set manually because running under OS X 10.4 or 10.5 and 'Prepend domain name to search domains' was not selected"
 					readonly FIN_DNS_SD="$(trim "${MAN_DNS_SD}" "${FIN_DNS_DN}")"
+                        else
+                            logMessage "Not appending '${FIN_DNS_DN}' to search domains '${CUR_DNS_SD}' because it is already in the search domains that were set manually and 'Prepend domain name to search domains' was not selected"
+                            readonly FIN_DNS_SD="${CUR_DNS_SD}"
 			fi
 			;;
 			* )
@@ -361,16 +429,20 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 					logMessage "Setting search domains to '${FIN_DNS_DN}' because running under OS X 10.6 or higher and the search domains were not set manually and 'Prepend domain name to search domains' was not selected"
 					readonly FIN_DNS_SD="${FIN_DNS_DN}"
 			else
-					logMessage "Did not replace search domains '${CUR_DNS_SD}' with '${FIN_DNS_DN}' because running under OS X 10.6 or higher and the search domains were set manually and 'Prepend domain name to search domains' was not selected"
+                            logMessage "Not replacing search domains '${CUR_DNS_SD}' with '${FIN_DNS_DN}' because the search domains were set manually and 'Prepend domain name to search domains' was not selected"
 					readonly FIN_DNS_SD="${CUR_DNS_SD}"
 			fi
 			;;
 	esac
+            else
+                readonly FIN_DNS_SD="${CUR_DNS_SD}"
+            fi
+		fi
 	fi
 		
-	logMessage "DEBUG:"
-	logMessage "DEBUG: FIN_DNS_DN = ${FIN_DNS_DN}; FIN_DNS_SA = ${FIN_DNS_SA}; FIN_DNS_SD = ${FIN_DNS_SD}"
-	logMessage "DEBUG: FIN_SMB_NN = ${FIN_SMB_NN}; FIN_SMB_WG = ${FIN_SMB_WG}; FIN_SMB_WA = ${FIN_SMB_WA}"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: FIN_DNS_DN = ${FIN_DNS_DN}; FIN_DNS_SA = ${FIN_DNS_SA}; FIN_DNS_SD = ${FIN_DNS_SD}"
+	logDebugMessage "DEBUG: FIN_SMB_NN = ${FIN_SMB_NN}; FIN_SMB_WG = ${FIN_SMB_WG}; FIN_SMB_WA = ${FIN_SMB_WA}"
 
 # Set up SKP_... variables to inhibit scutil from making some changes
 
@@ -450,46 +522,58 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 	
 	case "${OSVER}" in
 		10.4 | 10.5 | 10.6 )
-			logMessage "DEBUG: OS X 10.4-10.6, so will modify settings using only State:"
+			logDebugMessage "DEBUG: OS X 10.4-10.6, so will modify settings using only State:"
 			readonly SKP_SETUP_DNS="#"
 			readonly bAlsoUsingSetupKeys="false"
 			;;
 		10.7 )
 			if [ "${MAN_DNS_SA}" = "" -a  "${MAN_DNS_SD}" = "" ] ; then
-				logMessage "DEBUG: OS X 10.7 and neither ServerAddresses nor SearchDomains were set manually, so will modify DNS settings using only State:"
+				logDebugMessage "DEBUG: OS X 10.7 and neither ServerAddresses nor SearchDomains were set manually, so will modify DNS settings using only State:"
 				readonly SKP_SETUP_DNS="#"
 				readonly bAlsoUsingSetupKeys="false"
 	else
-				logMessage "DEBUG: OS X 10.7 and ServerAddresses or SearchDomains were set manually, so will modify DNS settings using Setup: in addition to State:"
+				logDebugMessage "DEBUG: OS X 10.7 and ServerAddresses or SearchDomains were set manually, so will modify DNS settings using Setup: in addition to State:"
 				readonly SKP_SETUP_DNS=""
 				readonly bAlsoUsingSetupKeys="true"
 	fi
 			;;
 		* )
-			logMessage "DEBUG: OS X 10.8 or higher, so will modify DNS settings using Setup: in addition to State:"
+			logDebugMessage "DEBUG: OS X 10.8 or higher, so will modify DNS settings using Setup: in addition to State:"
 			readonly SKP_SETUP_DNS=""
 			readonly bAlsoUsingSetupKeys="true"
 			;;
 	esac
 	
-	logMessage "DEBUG:"
-	logMessage "DEBUG: SKP_DNS = ${SKP_DNS}; SKP_DNS_SA = ${SKP_DNS_SA}; SKP_DNS_SD = ${SKP_DNS_SD}; SKP_DNS_DN = ${SKP_DNS_DN}"
-	logMessage "DEBUG: SKP_SETUP_DNS = ${SKP_SETUP_DNS}"
-	logMessage "DEBUG: SKP_SMB = ${SKP_SMB}; SKP_SMB_NN = ${SKP_SMB_NN}; SKP_SMB_WG = ${SKP_SMB_WG}; SKP_SMB_WA = ${SKP_SMB_WA}"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: SKP_DNS = ${SKP_DNS}; SKP_DNS_SA = ${SKP_DNS_SA}; SKP_DNS_SD = ${SKP_DNS_SD}; SKP_DNS_DN = ${SKP_DNS_DN}"
+	logDebugMessage "DEBUG: SKP_SETUP_DNS = ${SKP_SETUP_DNS}"
+	logDebugMessage "DEBUG: SKP_SMB = ${SKP_SMB}; SKP_SMB_NN = ${SKP_SMB_NN}; SKP_SMB_WG = ${SKP_SMB_WG}; SKP_SMB_WA = ${SKP_SMB_WA}"
 
-	logMessage "DEBUG:"
-	logMessage "DEBUG: Configuration changes:"
-	logMessage "DEBUG: ${SKP_DNS}${SKP_DNS_SA}ADD State: ServerAddresses  ${FIN_DNS_SA}"
-	logMessage "DEBUG: ${SKP_DNS}${SKP_DNS_SD}ADD State: SearchDomains    ${FIN_DNS_SD}"
-	logMessage "DEBUG: ${SKP_DNS}${SKP_DNS_DN}ADD State: DomainName       ${FIN_DNS_DN}"
-	logMessage "DEBUG:"
-	logMessage "DEBUG: ${SKP_SETUP_DNS}${SKP_DNS}${SKP_DNS_SA}ADD Setup: ServerAddresses  ${FIN_DNS_SA}"
-	logMessage "DEBUG: ${SKP_SETUP_DNS}${SKP_DNS}${SKP_DNS_SD}ADD Setup: SearchDomains    ${FIN_DNS_SD}"
-	logMessage "DEBUG: ${SKP_SETUP_DNS}${SKP_DNS}${SKP_DNS_DN}ADD Setup: DomainName       ${FIN_DNS_DN}"
-	logMessage "DEBUG:"
-	logMessage "DEBUG: ${SKP_SMB}${SKP_SMB_NN}ADD State: NetBIOSName    ${FIN_SMB_NN}"
-	logMessage "DEBUG: ${SKP_SMB}${SKP_SMB_WG}ADD State: Workgroup      ${FIN_SMB_WG}"
-	logMessage "DEBUG: ${SKP_SMB}${SKP_SMB_WA}ADD State: WINSAddresses  ${FIN_SMB_WA}"
+    set +e # "grep" will return error status (1) if no matches are found, so don't fail if not found
+    original_resolver_contents="`cat /etc/resolv.conf | grep -v '#'`"
+    set -e # resume abort on error
+    logDebugMessage "DEBUG:"
+    logDebugMessage "DEBUG: /etc/resolve = ${original_resolver_contents}"
+    logDebugMessage "DEBUG:"
+
+	scutil_dns="$( scutil --dns)"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: scutil --dns BEFORE CHANGES = ${scutil_dns}"
+	logDebugMessage "DEBUG:"
+
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: Configuration changes:"
+	logDebugMessage "DEBUG: ${SKP_DNS}${SKP_DNS_SA}ADD State: ServerAddresses  ${FIN_DNS_SA}"
+	logDebugMessage "DEBUG: ${SKP_DNS}${SKP_DNS_SD}ADD State: SearchDomains    ${FIN_DNS_SD}"
+	logDebugMessage "DEBUG: ${SKP_DNS}${SKP_DNS_DN}ADD State: DomainName       ${FIN_DNS_DN}"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: ${SKP_SETUP_DNS}${SKP_DNS}${SKP_DNS_SA}ADD Setup: ServerAddresses  ${FIN_DNS_SA}"
+	logDebugMessage "DEBUG: ${SKP_SETUP_DNS}${SKP_DNS}${SKP_DNS_SD}ADD Setup: SearchDomains    ${FIN_DNS_SD}"
+	logDebugMessage "DEBUG: ${SKP_SETUP_DNS}${SKP_DNS}${SKP_DNS_DN}ADD Setup: DomainName       ${FIN_DNS_DN}"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: ${SKP_SMB}${SKP_SMB_NN}ADD State: NetBIOSName    ${FIN_SMB_NN}"
+	logDebugMessage "DEBUG: ${SKP_SMB}${SKP_SMB_WG}ADD State: Workgroup      ${FIN_SMB_WG}"
+	logDebugMessage "DEBUG: ${SKP_SMB}${SKP_SMB_WA}ADD State: WINSAddresses  ${FIN_SMB_WA}"
     
 	# Save the openvpn process ID and the Network Primary Service ID, leasewather.plist path, logfile path, and optional arguments from Tunnelblick,
 	# then save old and new DNS and SMB settings
@@ -505,6 +589,7 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 		d.add PID # ${PPID}
 		d.add Service ${PSID}
 		d.add LeaseWatcherPlistPath "${LEASEWATCHER_PLIST_PATH}"
+		d.add RemoveLeaseWatcherPlist "${REMOVE_LEASEWATCHER_PLIST}"
 		d.add ScriptLogFile         "${SCRIPT_LOG_FILE}"
 		d.add MonitorNetwork        "${ARG_MONITOR_NETWORK_CONFIGURATION}"
 		d.add RestoreOnDNSReset     "${ARG_RESTORE_ON_DNS_RESET}"
@@ -512,9 +597,11 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 		d.add IgnoreOptionFlags     "${ARG_IGNORE_OPTION_FLAGS}"
 		d.add IsTapInterface        "${ARG_TAP}"
         d.add FlushDNSCache         "${ARG_FLUSH_DNS_CACHE}"
+        d.add ResetPrimaryInterface "${ARG_RESET_PRIMARY_INTERFACE_ON_DISCONNECT}"
 		d.add RouteGatewayIsDhcp    "${bRouteGatewayIsDhcp}"
 		d.add bAlsoUsingSetupKeys   "${bAlsoUsingSetupKeys}"
         d.add TapDeviceHasBeenSetNone "false"
+        d.add TunnelDevice          "$dev"
 		set State:/Network/OpenVPN
 		
 		# Back up the device's current DNS and SMB configurations,
@@ -561,8 +648,8 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 		quit
 EOF
 
-	logMessage "DEBUG:"
-	logMessage "DEBUG: Pause for configuration changes to be propagated to State:/Network/Global/DNS and .../SMB"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: Pause for configuration changes to be propagated to State:/Network/Global/DNS and .../SMB"
 	sleep 1
 		
 	scutil <<-EOF > /dev/null
@@ -640,37 +727,54 @@ sed -e 's/^[[:space:]]*[[:digit:]]* : //g' | tr '\n' ' '
 )"
 
 
-	logMessage "DEBUG:"
-	logMessage "DEBUG: Configurations as read back after changes:"
-	logMessage "DEBUG: State:/.../DNS = ${NEW_DNS_STATE_CONFIG}"
-	logMessage "DEBUG: State:/.../SMB = ${NEW_SMB_STATE_CONFIG}"
-	logMessage "DEBUG:"
-	logMessage "DEBUG: Setup:/.../DNS = ${NEW_DNS_SETUP_CONFIG}"
-	logMessage "DEBUG: Setup:/.../SMB = ${NEW_SMB_SETUP_CONFIG}"
-	logMessage "DEBUG:"
-    logMessage "DEBUG: State:/Network/Global/DNS = ${NEW_DNS_GLOBAL_CONFIG}"
-    logMessage "DEBUG: State:/Network/Global/SMB = ${NEW_SMB_GLOBAL_CONFIG}"
-	logMessage "DEBUG:"
-	logMessage "DEBUG: Expected by process-network-changes:"
-    logMessage "DEBUG: State:/Network/OpenVPN/DNS = ${EXPECTED_NEW_DNS_GLOBAL_CONFIG}"
-    logMessage "DEBUG: State:/Network/OpenVPN/SMB = ${EXPECTED_NEW_SMB_GLOBAL_CONFIG}"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: Configurations as read back after changes:"
+	logDebugMessage "DEBUG: State:/.../DNS = ${NEW_DNS_STATE_CONFIG}"
+	logDebugMessage "DEBUG: State:/.../SMB = ${NEW_SMB_STATE_CONFIG}"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: Setup:/.../DNS = ${NEW_DNS_SETUP_CONFIG}"
+	logDebugMessage "DEBUG: Setup:/.../SMB = ${NEW_SMB_SETUP_CONFIG}"
+	logDebugMessage "DEBUG:"
+    logDebugMessage "DEBUG: State:/Network/Global/DNS = ${NEW_DNS_GLOBAL_CONFIG}"
+    logDebugMessage "DEBUG: State:/Network/Global/SMB = ${NEW_SMB_GLOBAL_CONFIG}"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: Expected by process-network-changes:"
+    logDebugMessage "DEBUG: State:/Network/OpenVPN/DNS = ${EXPECTED_NEW_DNS_GLOBAL_CONFIG}"
+    logDebugMessage "DEBUG: State:/Network/OpenVPN/SMB = ${EXPECTED_NEW_SMB_GLOBAL_CONFIG}"
 
-	logMessage "Saved the DNS and SMB configurations for later use"
+    set +e # "grep" will return error status (1) if no matches are found, so don't fail if not found
+    new_resolver_contents="`cat /etc/resolv.conf | grep -v '#'`"
+    set -e # resume abort on error
+    logDebugMessage "DEBUG:"
+    logDebugMessage "DEBUG: /etc/resolve = ${new_resolver_contents}"
+    logDebugMessage "DEBUG:"
+
+	scutil_dns="$( scutil --dns)"
+	logDebugMessage "DEBUG:"
+	logDebugMessage "DEBUG: scutil --dns AFTER CHANGES = ${scutil_dns}"
+	logDebugMessage "DEBUG:"
+	
+	logMessage "Saved the DNS and SMB configurations so they can be restored"
+
+    logChange "${SKP_DNS}${SKP_DNS_SA}" "ServerAddresses" "${FIN_DNS_SA}"
+    logChange "${SKP_DNS}${SKP_DNS_SD}" "SearchDomains  " "${FIN_DNS_SD}"
+    logChange "${SKP_DNS}${SKP_DNS_DN}" "DomainName      " "${FIN_DNS_DN}"
+    logChange "${SKP_SMB}${SKP_SMB_NN}" "NetBIOSName    " "${FIN_SMB_SA}"
+    logChange "${SKP_SMB}${SKP_SMB_WG}" "Workgroup       " "${FIN_SMB_WG}"
+    logChange "${SKP_SMB}${SKP_SMB_WA}" "WINSAddresses  " "${FIN_SMB_WA}"
+
+	flushDNSCache
 	
 	if ${ARG_MONITOR_NETWORK_CONFIGURATION} ; then
-        if [ "${ARG_IGNORE_OPTION_FLAGS:0:2}" = "-a" ] ; then
-            # Generate an updated plist with the path for process-network-changes
-            readonly LEASEWATCHER_TEMPLATE_PATH="$(dirname "${0}")/ProcessNetworkChanges.plist.template"
-            sed -e "s|\${DIR}|$(dirname "${0}")|g" "${LEASEWATCHER_TEMPLATE_PATH}" > "${LEASEWATCHER_PLIST_PATH}"
-            launchctl load "${LEASEWATCHER_PLIST_PATH}"
-            logMessage "Set up to monitor system configuration with process-network-changes"
+        if [ "${ARG_IGNORE_OPTION_FLAGS:0:2}" = "-p" ] ; then
+            logMessage "Setting up to monitor system configuration with process-network-changes"
         else
-            # Generate an updated plist with the path for leasewatch
-            readonly LEASEWATCHER_TEMPLATE_PATH="$(dirname "${0}")/LeaseWatch.plist.template"
-            sed -e "s|\${DIR}|$(dirname "${0}")|g" "${LEASEWATCHER_TEMPLATE_PATH}" > "${LEASEWATCHER_PLIST_PATH}"
-            launchctl load "${LEASEWATCHER_PLIST_PATH}"
-            logMessage "Set up to monitor system configuration with leasewatch"
+            logMessage "Setting up to monitor system configuration with leasewatch"
         fi
+        if [ "${LEASEWATCHER_TEMPLATE_PATH}" != "" ] ; then
+            sed -e "s|/Applications/SurfSafeVPN/.app/Contents/Resources|${TB_RESOURCES_PATH}|g" "${LEASEWATCHER_TEMPLATE_PATH}" > "${LEASEWATCHER_PLIST_PATH}"
+        fi
+        launchctl load "${LEASEWATCHER_PLIST_PATH}"
 	fi
 }
 
@@ -687,9 +791,9 @@ configureDhcpDns()
 	
 	# - wait until we get a lease before extracting the DNS domain name and merging into SC
 	# - despite it's name, ipconfig waitall doesn't (but maybe one day it will :-)
-	logMessage "DEBUG_TAP: About to 'ipconfig waitall'"
+	logDebugMessage "DEBUG: About to 'ipconfig waitall'"
 	ipconfig waitall
-	logMessage "DEBUG_TAP: Completed 'ipconfig waitall'"
+	logDebugMessage "DEBUG: Completed 'ipconfig waitall'"
 	
 	unset test_domain_name
 	unset test_name_server
@@ -714,23 +818,25 @@ configureDhcpDns()
 		fi
 	done
 	
-    logMessage "DEBUG_TAP: Finished waiting for DHCP lease: test_domain_name = '$test_domain_name', test_name_server = '$test_name_server'"
+    logDebugMessage "DEBUG: Finished waiting for DHCP lease: test_domain_name = '$test_domain_name', test_name_server = '$test_name_server'"
     
-    logMessage "DEBUG_TAP: About to 'ipconfig getpacket $dev'"
+    logDebugMessage "DEBUG: About to 'ipconfig getpacket $dev'"
 	sGetPacketOutput=`ipconfig getpacket $dev`
-    logMessage "DEBUG_TAP: Completed 'ipconfig getpacket $dev'; sGetPacketOutput = $sGetPacketOutput"
+    logDebugMessage "DEBUG: Completed 'ipconfig getpacket $dev'; sGetPacketOutput = $sGetPacketOutput"
 	
 	set -e # We instruct bash that it CAN again fail on individual errors
 	
 	unset aNameServers
 	unset aWinsServers
+	unset aSearchDomains
 	
 	nNameServerIndex=1
 	nWinsServerIndex=1
+	nSearchDomainIndex=1
 	
 	if [ "$sGetPacketOutput" ]; then
 		sGetPacketOutput_FirstLine=`echo "$sGetPacketOutput"|head -n 1`
-		logMessage "DEBUG_TAP: sGetPacketOutput_FirstLine = $sGetPacketOutput_FirstLine"
+		logDebugMessage "DEBUG: sGetPacketOutput_FirstLine = $sGetPacketOutput_FirstLine"
 		
 		if [ "$sGetPacketOutput_FirstLine" == "op = BOOTREPLY" ]; then
 			set +e # "grep" will return error status (1) if no matches are found, so don't fail on individual errors
@@ -745,16 +851,21 @@ configureDhcpDns()
 				let nWinsServerIndex++
 			done
 			
+			for tSearchDomain in `echo "$sGetPacketOutput"|grep "search_domain"|grep -Eo "\{([-A-Za-z0-9\-\.]+)(, [-A-Za-z0-9\-\.]+)*\}"|grep -Eo "([-A-Za-z0-9\-\.]+)"`; do
+				aSearchDomains[nSearchDomainIndex-1]="$(trim "$tSearchDomain")"
+				let nSearchDomainIndex++
+			done
+			
 			sDomainName=`echo "$sGetPacketOutput"|grep "domain_name "|grep -Eo ": [-A-Za-z0-9\-\.]+"|grep -Eo "[-A-Za-z0-9\-\.]+"`
 			sDomainName="$(trim "$sDomainName")"
 			
 			if [ ${#aNameServers[*]} -gt 0 -a "$sDomainName" ]; then
-				logMessage "Retrieved name server(s) [ ${aNameServers[@]} ], domain name [ $sDomainName ], and SMB server(s) [ ${aWinsServers[@]} ]"
-				setDnsServersAndDomainName aNameServers[@] "$sDomainName" aWinsServers[@]
+				logMessage "Retrieved from DHCP/BOOTP packet: name server(s) [ ${aNameServers[@]} ], domain name [ $sDomainName ], search domain(s) [ ${aSearchDomains[@]} ] and SMB server(s) [ ${aWinsServers[@]} ]"
+				setDnsServersAndDomainName aNameServers[@] "$sDomainName" aWinsServers[@] aSearchDomains[@]
 				return 0
 			elif [ ${#aNameServers[*]} -gt 0 ]; then
-				logMessage "Retrieved name server(s) [ ${aNameServers[@]} ] and SMB server(s) [ ${aWinsServers[@]} ] and using default domain name [ $DEFAULT_DOMAIN_NAME ]"
-				setDnsServersAndDomainName aNameServers[@] "$DEFAULT_DOMAIN_NAME" aWinsServers[@]
+				logMessage "Retrieved from DHCP/BOOTP packet: name server(s) [ ${aNameServers[@]} ], search domain(s) [ ${aSearchDomains[@]} ] and SMB server(s) [ ${aWinsServers[@]} ] and using default domain name [ $DEFAULT_DOMAIN_NAME ]"
+				setDnsServersAndDomainName aNameServers[@] "$DEFAULT_DOMAIN_NAME" aWinsServers[@] aSearchDomains[@]
 				return 0
 			else
 				# Should we return 1 here and indicate an error, or attempt the old method?
@@ -774,12 +885,12 @@ configureDhcpDns()
 	
     set +e # We instruct bash NOT to exit on individual command errors, because if we need to wait longer these commands will fail
 	
-	logMessage "DEBUG_TAP: About to 'ipconfig getoption $dev domain_name'"
+	logDebugMessage "DEBUG: About to 'ipconfig getoption $dev domain_name'"
 	sDomainName=`ipconfig getoption $dev domain_name 2>/dev/null`
-	logMessage "DEBUG_TAP: Completed 'ipconfig getoption $dev domain_name'"
-	logMessage "DEBUG_TAP: About to 'ipconfig getoption $dev domain_name_server'"
+	logDebugMessage "DEBUG: Completed 'ipconfig getoption $dev domain_name'"
+	logDebugMessage "DEBUG: About to 'ipconfig getoption $dev domain_name_server'"
 	sNameServer=`ipconfig getoption $dev domain_name_server 2>/dev/null`
-	logMessage "DEBUG_TAP: Completed 'ipconfig getoption $dev domain_name_server'"
+	logDebugMessage "DEBUG: Completed 'ipconfig getoption $dev domain_name_server'"
     
 	set -e # We instruct bash that it CAN again fail on individual errors
 	
@@ -787,15 +898,16 @@ configureDhcpDns()
 	sNameServer="$(trim "$sNameServer")"
 	
 	declare -a aWinsServers=( ) # Declare empty WINSServers array to avoid any useless error messages
+	declare -a aSearchDomains=( ) # Declare empty SearchDomains array to avoid any useless error messages
 	
 	if [ "$sDomainName" -a "$sNameServer" ]; then
 		aNameServers[0]=$sNameServer
-		logMessage "Retrieved name server [ $sNameServer ], domain name [ $sDomainName ], and no SMB servers"
-		setDnsServersAndDomainName aNameServers[@] "$sDomainName" aWinsServers[@]
+		logMessage "Retrieved OpenVPN (DHCP): name server [ $sNameServer ], domain name [ $sDomainName ], and no SMB servers or search domains"
+		setDnsServersAndDomainName aNameServers[@] "$sDomainName" aWinsServers[@] aSearchDomains[@]
 	elif [ "$sNameServer" ]; then
 		aNameServers[0]=$sNameServer
-		logMessage "Retrieved name server [ $sNameServer ] and no SMB servers, and using default domain name [ $DEFAULT_DOMAIN_NAME ]"
-		setDnsServersAndDomainName aNameServers[@] "$DEFAULT_DOMAIN_NAME" aWinsServers[@]
+		logMessage "Retrieved OpenVPN (DHCP): name server [ $sNameServer ] and no SMB servers or search domains, and using default domain name [ $DEFAULT_DOMAIN_NAME ]"
+		setDnsServersAndDomainName aNameServers[@] "$DEFAULT_DOMAIN_NAME" aWinsServers[@] aSearchDomains[@]
 	elif [ "$sDomainName" ]; then
 		logMessage "WARNING: Retrieved domain name [ $sDomainName ] but no name servers from OpenVPN (DHCP), which is not sufficient to make network/DNS configuration changes."
 		if ${ARG_MONITOR_NETWORK_CONFIGURATION} ; then
@@ -819,6 +931,9 @@ configureOpenVpnDns()
 # Description of foreign_option_ parameters (from OpenVPN 2.3-alpha_2 man page):
 #
 # DOMAIN name -- Set Connection-specific DNS Suffix.
+#
+# DOMAIN-SEARCH name -- Set Connection-specific DNS Search Address. Repeat this option to
+#               set additional search domains. (Tunnelblick-specific addition.)
 #
 # DNS addr -- Set primary domain name server address.  Repeat  this  option  to  set
 #              secondary DNS server addresses.
@@ -853,14 +968,20 @@ configureOpenVpnDns()
 	unset vOptions
 	unset aNameServers
 	unset aWinsServers
+	unset aSearchDomains
 	
 	nOptionIndex=1
 	nNameServerIndex=1
 	nWinsServerIndex=1
+	nSearchDomainIndex=1
 
 	while vForOptions=foreign_option_$nOptionIndex; [ -n "${!vForOptions}" ]; do
 		vOptions[nOptionIndex-1]=${!vForOptions}
 		case ${vOptions[nOptionIndex-1]} in
+			*DOMAIN-SEARCH*    )
+				aSearchDomains[nSearchDomainIndex-1]="$(trim "${vOptions[nOptionIndex-1]//dhcp-option DOMAIN-SEARCH /}")"
+				let nSearchDomainIndex++
+				;;
 			*DOMAIN* )
 				sDomainName="$(trim "${vOptions[nOptionIndex-1]//dhcp-option DOMAIN /}")"
 				;;
@@ -873,18 +994,18 @@ configureOpenVpnDns()
 				let nWinsServerIndex++
 				;;
             *   )
-                logMessage "Unknown: 'foreign_option_${nOptionIndex}' = '${vOptions[nOptionIndex-1]}' ignored"
+                logMessage "UNKNOWN: 'foreign_option_${nOptionIndex}' = '${vOptions[nOptionIndex-1]}' ignored"
                 ;;
 		esac
 		let nOptionIndex++
 	done
 	
 	if [ ${#aNameServers[*]} -gt 0 -a "$sDomainName" ]; then
-		logMessage "Retrieved name server(s) [ ${aNameServers[@]} ], domain name [ $sDomainName ], and SMB server(s) [ ${aWinsServers[@]} ]"
-		setDnsServersAndDomainName aNameServers[@] "$sDomainName" aWinsServers[@]
+		logMessage "Retrieved from OpenVPN: name server(s) [ ${aNameServers[@]} ], domain name [ $sDomainName ], search domain(s) [ ${aSearchDomains[@]} ], and SMB server(s) [ ${aWinsServers[@]} ]"
+		setDnsServersAndDomainName aNameServers[@] "$sDomainName" aWinsServers[@] aSearchDomains[@]
 	elif [ ${#aNameServers[*]} -gt 0 ]; then
-		logMessage "Retrieved name server(s) [ ${aNameServers[@]} ] and SMB server(s) [ ${aWinsServers[@]} ] and using default domain name [ $DEFAULT_DOMAIN_NAME ]"
-		setDnsServersAndDomainName aNameServers[@] "$DEFAULT_DOMAIN_NAME" aWinsServers[@]
+		logMessage "Retrieved from OpenVPN: name server(s) [ ${aNameServers[@]} ], search domain(s) [ ${aSearchDomains[@]} ] and SMB server(s) [ ${aWinsServers[@]} ] and using default domain name [ $DEFAULT_DOMAIN_NAME ]"
+		setDnsServersAndDomainName aNameServers[@] "$DEFAULT_DOMAIN_NAME" aWinsServers[@] aSearchDomains[@]
 	else
 		logMessage "No DNS information received from OpenVPN, so no network configuration changes need to be made."
 		if ${ARG_MONITOR_NETWORK_CONFIGURATION} ; then
@@ -899,39 +1020,57 @@ configureOpenVpnDns()
 flushDNSCache()
 {
     if ${ARG_FLUSH_DNS_CACHE} ; then
-        case "${OSVER}" in
-            10.4 )
+	    if [ "${OSVER}" = "10.4" ] ; then
+
                 if [ -f /usr/sbin/lookupd ] ; then
+				set +e # we will catch errors from lookupd
                     /usr/sbin/lookupd -flushcache
-                    logMessage "Flushed the DNS Cache"
+				if [ $? != 0 ] ; then
+					logMessage "Unable to flush the DNS cache via lookupd"
+				else
+					logMessage "Flushed the DNS cache via lookupd"
+				fi
+				set -e # bash should again fail on errors
                 else
                     logMessage "/usr/sbin/lookupd not present. Not flushing the DNS cache"
                 fi
-                ;;
-            10.5 | 10.6 )
+
+		else
+
                 if [ -f /usr/bin/dscacheutil ] ; then
+				set +e # we will catch errors from dscacheutil
                     /usr/bin/dscacheutil -flushcache
-                    logMessage "Flushed the DNS Cache"
+				if [ $? != 0 ] ; then
+					logMessage "Unable to flush the DNS cache via dscacheutil"
                 else
-                    logMessage "/usr/bin/dscacheutil not present. Not flushing the DNS cache"
+					logMessage "Flushed the DNS cache via dscacheutil"
                 fi
-                ;;
-            * )
+				set -e # bash should again fail on errors
+			else
+				logMessage "/usr/bin/dscacheutil not present. Not flushing the DNS cache via dscacheutil"
+			fi
+		
 				set +e # "grep" will return error status (1) if no matches are found, so don't fail on individual errors
 				hands_off_ps="$( ps -ax | grep HandsOffDaemon | grep -v grep.HandsOffDaemon )"
 				set -e # We instruct bash that it CAN again fail on errors
 				if [ "${hands_off_ps}" = "" ] ; then
 					if [ -f /usr/bin/killall ] ; then
+					set +e # ignore errors if mDNSResponder isn't currently running
 						/usr/bin/killall -HUP mDNSResponder
-						logMessage "Flushed the DNS Cache"
+					if [ $? != 0 ] ; then
+						logMessage "mDNSResponder not running. Not notifying it that the DNS cache was flushed"
 					else
-						logMessage "/usr/bin/killall not present. Not flushing the DNS cache"
+						logMessage "Notified mDNSResponder that the DNS cache was flushed"
 					fi
+					set -e # bash should again fail on errors
 				else
-					logMessage "Hands Off is running. Not flushing the DNS cache"
+					logMessage "/usr/bin/killall not present. Not notifying mDNSResponder that the DNS cache was flushed"
 				fi
-                ;;
-        esac
+			else
+				logMessage "Hands Off is running.  Not notifying mDNSResponder that the DNS cache was flushed"
+			fi
+		
+				fi
     fi
 }
 
@@ -946,40 +1085,65 @@ trap "" HUP
 trap "" INT
 export PATH="/bin:/sbin:/usr/sbin:/usr/bin"
 
+readonly OUR_NAME=$(basename "${0}")
+
+logMessage "**********************************************"
+logMessage "Start of output from ${OUR_NAME}"
+
 # Process optional arguments (if any) for the script
 # Each one begins with a "-"
 # They come from Tunnelblick, and come first, before the OpenVPN arguments
 # So we set ARG_ script variables to their values and shift them out of the argument list
 # When we're done, only the OpenVPN arguments remain for the rest of the script to use
-ARG_MONITOR_NETWORK_CONFIGURATION="false"
-ARG_RESTORE_ON_DNS_RESET="false"
-ARG_RESTORE_ON_WINS_RESET="false"
 ARG_TAP="false"
-ARG_PREPEND_DOMAIN_NAME="false"
+ARG_RESTORE_ON_DNS_RESET="false"
 ARG_FLUSH_DNS_CACHE="false"
 ARG_IGNORE_OPTION_FLAGS=""
+ARG_EXTRA_LOGGING="false"
+ARG_MONITOR_NETWORK_CONFIGURATION="false"
+ARG_DO_NO_USE_DEFAULT_DOMAIN="false"
+ARG_PREPEND_DOMAIN_NAME="false"
+ARG_RESET_PRIMARY_INTERFACE_ON_DISCONNECT="false"
+ARG_TB_PATH="/Applications/SurfSafeVPN.app"
+ARG_RESTORE_ON_WINS_RESET="false"
 
+# Handle the arguments we know about by setting ARG_ script variables to their values, then shift them out
 while [ {$#} ] ; do
-	if [ "$1" = "-m" ] ; then						# Handle the arguments we know about
-		ARG_MONITOR_NETWORK_CONFIGURATION="true"	# by setting ARG_ script variables to their values
-		shift										# Then shift them out
-	elif [ "$1" = "-d" ] ; then
-		ARG_RESTORE_ON_DNS_RESET="true"
-		shift
-	elif [ "$1" = "-w" ] ; then
-		ARG_RESTORE_ON_WINS_RESET="true"
-		shift
-	elif [ "$1" = "-a" ] ; then
+	if [ "$1" = "-a" ] ; then						# -a = ARG_TAP
 		ARG_TAP="true"
 		shift
-	elif [ "$1" = "-p" ] ; then
+    elif [ "$1" = "-d" ] ; then                     # -d = ARG_RESTORE_ON_DNS_RESET
+		ARG_RESTORE_ON_DNS_RESET="true"
+		shift
+    elif [ "$1" = "-f" ] ; then                     # -f = ARG_FLUSH_DNS_CACHE
+        ARG_FLUSH_DNS_CACHE="true"
+		shift
+	elif [ "${1:0:2}" = "-i" ] ; then				# -i arguments are for leasewatcher
+		ARG_IGNORE_OPTION_FLAGS="${1}"
+		shift
+   elif [ "$1" = "-l" ] ; then                      # -l = ARG_EXTRA_LOGGING
+        ARG_EXTRA_LOGGING="true"
+		shift
+    elif [ "$1" = "-m" ] ; then                     # -m = ARG_MONITOR_NETWORK_CONFIGURATION
+		ARG_MONITOR_NETWORK_CONFIGURATION="true"
+		shift
+    elif [ "$1" = "-n" ] ; then                     # -n = ARG_DO_NO_USE_DEFAULT_DOMAIN
+        ARG_DO_NO_USE_DEFAULT_DOMAIN="true"
+        shift
+    elif [ "$1" = "-p" ] ; then                     # -p = ARG_PREPEND_DOMAIN_NAME
 		ARG_PREPEND_DOMAIN_NAME="true"
 		shift
-    elif [ "$1" = "-f" ] ; then
-        ARG_FLUSH_DNS_CACHE="true"
-        shift
-	elif [ "${1:0:2}" = "-i" ] ; then
+    elif [ "${1:0:2}" = "-p" ] ; then				# -p arguments are for process-network-changes
 		ARG_IGNORE_OPTION_FLAGS="${1}"
+		shift
+    elif [ "$1" = "-r" ] ; then                     # -r = ARG_RESET_PRIMARY_INTERFACE_ON_DISCONNECT
+        ARG_RESET_PRIMARY_INTERFACE_ON_DISCONNECT="true"
+        shift
+    elif [ "${1:0:2}" = "-t" ] ; then
+        ARG_TB_PATH="${1:2}"				        # -t path of Tunnelblick.app
+        shift
+    elif [ "$1" = "-w" ] ; then                     # -w = ARG_RESTORE_ON_WINS_RESET
+		ARG_RESTORE_ON_WINS_RESET="true"
 		shift
 	else
 		if [ "${1:0:1}" = "-" ] ; then				# Shift out Tunnelblick arguments (they start with "-") that we don't understand
@@ -990,7 +1154,7 @@ while [ {$#} ] ; do
 	fi
 done
 
-readonly ARG_MONITOR_NETWORK_CONFIGURATION ARG_RESTORE_ON_DNS_RESET ARG_RESTORE_ON_WINS_RESET ARG_TAP ARG_PREPEND_DOMAIN_NAME ARG_FLUSH_DNS_CACHE ARG_IGNORE_OPTION_FLAGS
+readonly ARG_MONITOR_NETWORK_CONFIGURATION ARG_RESTORE_ON_DNS_RESET ARG_RESTORE_ON_WINS_RESET ARG_TAP ARG_PREPEND_DOMAIN_NAME ARG_FLUSH_DNS_CACHE ARG_RESET_PRIMARY_INTERFACE_ON_DISCONNECT ARG_IGNORE_OPTION_FLAGS
 
 # Note: The script log path name is constructed from the path of the regular config file, not the shadow copy
 # if the config is shadow copy, e.g. /Library/Application Support/SurfSafeVPN/Users/Jonathan/Folder/Subfolder/config.ovpn
@@ -1012,15 +1176,50 @@ fi
 readonly CONFIG_PATH_DASHES_SLASHES="$(echo "${TBCONFIG}" | sed -e 's/-/--/g' | sed -e 's/\//-S/g')"
 readonly SCRIPT_LOG_FILE="/Library/Application Support/SurfSafeVPN/Logs/${CONFIG_PATH_DASHES_SLASHES}.script.log"
 
-readonly TB_RESOURCE_PATH=$(dirname "${0}")
+readonly TB_RESOURCES_PATH="${ARG_TB_PATH}/Contents/Resources"
 
-LEASEWATCHER_PLIST_PATH="/Library/Application Support/SurfSafeVPN/LeaseWatch.plist"
+# These scripts use a launchd .plist to set up to monitor the network configuration.
+#
+# If Tunnelblick.app is located in /Applications, we load the lanuchd .plist directly from within the .app.
+#
+# If Tunnelblick.app is not located in /Applications (i.e., we are debugging), we create a modified version of the launchd .plist and use
+# that modified copy in the 'launchctl load' command. (The modification is that the path to process-network-changes or leasewatch program
+# in the .plist is changed to point to the copy of the program that is inside the running Tunnelblick.)
+#
+# The variables involved in this are set up here:
+#
+#     LEASEWATCHER_PLIST_PATH    is the path of the .plist to use in the 'launchctl load' command
+#     LEASEWATCHER_TEMPLATE_PATH is an empty string if we load the .plist directly from within the .app,
+#                                or it is the path to the original .plist inside the .app which we copy and modify
+#     REMOVE_LEASEWATCHER_PLIST  is "true" if a modified .plist was used and should be deleted after it is unloaded
+#                                or "false' if the plist was loaded directly from the .app
+#
+#     LEASEWATCHER_PLIST_PATH and REMOVE_LEASEWATCHER_PLIST are passed to the other scripts via the scutil State:/Network/OpenVPN mechanism
+
+if [ "${ARG_IGNORE_OPTION_FLAGS:0:2}" = "-p" ] ; then
+    readonly LEASEWATCHER_PLIST="ProcessNetworkChanges.plist"
+else
+    readonly LEASEWATCHER_PLIST="LeaseWatch.plist"
+fi
+if [ "${ARG_TB_PATH}" = "/Applications/SurfSafeVPN.app" ] ; then
+    readonly LEASEWATCHER_PLIST_PATH="${TB_RESOURCES_PATH}/${LEASEWATCHER_PLIST}"
+    readonly LEASEWATCHER_TEMPLATE_PATH=""
+    readonly REMOVE_LEASEWATCHER_PLIST="false"
+else
+    readonly LEASEWATCHER_PLIST_PATH="/Library/Application Support/SurfSafeVPN/${LEASEWATCHER_PLIST}"
+    readonly LEASEWATCHER_TEMPLATE_PATH="${TB_RESOURCES_PATH}/${LEASEWATCHER_PLIST}"
+    readonly REMOVE_LEASEWATCHER_PLIST="true"
+fi
 
 set +e # "grep" will return error status (1) if no matches are found, so don't fail on individual errors
 readonly OSVER="$(sw_vers | grep 'ProductVersion:' | grep -o '10\.[0-9]*')"
 set -e # We instruct bash that it CAN again fail on errors
 
+if ${ARG_DO_NO_USE_DEFAULT_DOMAIN} ; then
+    readonly DEFAULT_DOMAIN_NAME=""
+else
 readonly DEFAULT_DOMAIN_NAME="openvpn"
+fi
 
 bRouteGatewayIsDhcp="false"
 
@@ -1037,21 +1236,22 @@ if ${ARG_TAP} ; then
 	fi
 	
 	if [ "$bRouteGatewayIsDhcp" == "true" ]; then
-		logMessage "DEBUG_TAP: bRouteGatewayIsDhcp is TRUE"
+		logDebugMessage "DEBUG: bRouteGatewayIsDhcp is TRUE"
 		if [ -z "$dev" ]; then
 			logMessage "Cannot configure TAP interface for DHCP without \$dev being defined. Exiting."
+            # We don't create the "/tmp/tunnelblick-downscript-needs-to-be-run.txt" file, because the down script does NOT need to be run since we didn't do anything
+            logMessage "End of output from ${OUR_NAME}"
+            logMessage "**********************************************"
 			exit 1
 		fi
 		
-		logMessage "DEBUG: About to 'ipconfig set \"$dev\" DHCP"
+		logDebugMessage "DEBUG: About to 'ipconfig set \"$dev\" DHCP"
 		ipconfig set "$dev" DHCP
-		logMessage "DEBUG: Did 'ipconfig set \"$dev\" DHCP"
+		logDebugMessage "DEBUG: Did 'ipconfig set \"$dev\" DHCP"
 		
-#		configureDhcpDns &
-		logMessage "Configuring tap DNS via DHCP"
-		configureDhcpDns
-		EXIT_CODE=$?
-        flushDNSCache
+		logMessage "Configuring tap DNS via DHCP asynchronously"
+		configureDhcpDns & # This must be run asynchronously; the DHCP lease will not complete until this script exits
+		EXIT_CODE=0
 	elif [ "$foreign_option_1" == "" ]; then
 		logMessage "No network configuration changes need to be made."
 		if ${ARG_MONITOR_NETWORK_CONFIGURATION} ; then
@@ -1061,7 +1261,6 @@ if ${ARG_TAP} ; then
 		logMessage "Configuring tap DNS via OpenVPN"
 		configureOpenVpnDns
 		EXIT_CODE=$?
-        flushDNSCache
 	fi
 else
 	if [ "$foreign_option_1" == "" ]; then
@@ -1075,5 +1274,10 @@ else
         flushDNSCache
 	fi
 fi
+
+touch "/tmp/tunnelblick-downscript-needs-to-be-run.txt"
+
+logMessage "End of output from ${OUR_NAME}"
+logMessage "**********************************************"
 
 exit $EXIT_CODE
