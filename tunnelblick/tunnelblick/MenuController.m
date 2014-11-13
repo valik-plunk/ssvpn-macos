@@ -526,16 +526,22 @@ BOOL checkOwnedByRootWheel(NSString * path);
             //hello from installer
             
             //check is exist FULLVersion
-            NSString * targetPath = [NSString stringWithFormat:@"/Applications/%@", FULL_APP_NAME];
-            if([gFileMgr fileExistsAtPath:targetPath]){
-                //set message that it's impossible to install trial client
-                TBRunAlertPanel(@"Failed to install SurfSafeVPN trial.", @"Installer detected existing non-trial version\n"
-                                "of SurfSafeVPN client in your \"Applications\" folder.\n"
-                                "Please remove full version of SurfSafeVPN client\n"
-                                "before using SurfsafeVPN Trial."
-                                , nil, nil, nil);
-                //close app
-                [self terminateBecause: terminatingBecauseOfQuit];
+
+            NSArray *fullNames = [NSArray arrayWithObjects:FULL_APP_NAME, FULL_MDS_APP_NAME, nil];
+            for (NSString *appName in fullNames) {
+                NSString * targetPath = [NSString stringWithFormat:@"/Applications/%@", appName];
+                if([gFileMgr fileExistsAtPath:targetPath]){
+                    //set message that it's impossible to install trial client
+                    NSString *alertTitle = [NSString stringWithFormat: @"Failed to install %@.", CURRENT_BUILD_APP_NAME];
+                    NSString *alertText = [NSString stringWithFormat:  @"Installer detected existing non-trial version\n"
+                                           "of %@ client in your \"Applications\" folder.\n"
+                                           "Please remove full version of %@ client\n"
+                                           "before using %@.", appName, appName, CURRENT_BUILD_APP_NAME];
+                    TBRunAlertPanel(alertTitle, alertText, nil, nil, nil);
+                    //close app
+                    [self terminateBecause: terminatingBecauseOfQuit];
+                    
+                }
             }
             //check for existing/expired trial key
             
@@ -4383,13 +4389,21 @@ BOOL anyNonTblkConfigs(void)
     // Set up messages to get authorization and notify of success
 	NSString * appVersion   = surfsafevpnVersion([NSBundle mainBundle]);
     NSString * tbInApplicationsPath = CURRENT_BUILD_APP_PATH;
-        NSString * applicationsPath = @"/Applications";
-        NSString * tbInApplicationsDisplayName = [[gFileMgr componentsToDisplayForPath: tbInApplicationsPath] componentsJoinedByString: @"/"];
-        NSString * applicationsDisplayName = [[gFileMgr componentsToDisplayForPath: applicationsPath] componentsJoinedByString: @"/"];
-        
-        NSString * launchWindowTitle = NSLocalizedString(@"Installation succeeded", @"Window title");
-        NSString * launchWindowText;
-        NSString * authorizationText;
+    // SS: support basic and MDS version
+    NSString * otherFullAppPath = FULL_APP_PATH;
+    NSString * otherAppName = FULL_APP_NAME;
+    if ([otherFullAppPath isEqualToString:tbInApplicationsPath]) {
+        otherFullAppPath = FULL_MDS_APP_PATH;
+        otherAppName = FULL_MDS_APP_NAME;
+    }
+    
+    NSString * applicationsPath = @"/Applications";
+    NSString * tbInApplicationsDisplayName = [[gFileMgr componentsToDisplayForPath: tbInApplicationsPath] componentsJoinedByString: @"/"];
+    NSString * applicationsDisplayName = [[gFileMgr componentsToDisplayForPath: applicationsPath] componentsJoinedByString: @"/"];
+    
+    NSString * launchWindowTitle = NSLocalizedString(@"Installation succeeded", @"Window title");
+    NSString * launchWindowText;
+    NSString * authorizationText;
         
 	NSString * signatureWarningText;
 	if (  signatureIsInvalid  ) {
@@ -4398,6 +4412,7 @@ BOOL anyNonTblkConfigs(void)
 		signatureWarningText = @"";
 	}
 	
+
 	NSString * convertTblksText;
     {
 		convertTblksText = @"";
@@ -4420,6 +4435,22 @@ BOOL anyNonTblkConfigs(void)
                                  previousVersion, applicationsDisplayName, appVersion, tblksMsg];
             launchWindowText = @"SurfSafeVPN Free Trial was successfully replaced.\n\nDo you wish to launch the new full version of SurfSafeVPN now?";    
             }
+        else if([gFileMgr fileExistsAtPath: TRIAL_MDS_APP_PATH]){
+            NSBundle * previousBundle = [NSBundle bundleWithPath: TRIAL_MDS_APP_PATH];
+            NSString * previousVersion = surfsafevpnVersion(previousBundle);
+            authorizationText = [NSString stringWithFormat:
+                                 @" Do you wish to replace\n Trial Version of %@\n    in %@\nwith %@%@?\n\n",
+                                 previousVersion, TRIAL_MDS_APP_NAME, appVersion, tblksMsg];
+            launchWindowText = @"SurfSafeMDSVPN Free Trial was successfully replaced.\n\nDo you wish to launch the new full version of SurfSafeVPN now?";
+        }
+        else if([gFileMgr fileExistsAtPath: otherFullAppPath]){
+            NSBundle * previousBundle = [NSBundle bundleWithPath: otherFullAppPath];
+            NSString * previousVersion = surfsafevpnVersion(previousBundle);
+            authorizationText = [NSString stringWithFormat:
+                                 @" Do you wish to replace\n Another Surf Safe Version of %@\n    in %@\nwith %@%@?\n\n",
+                                 previousVersion, otherAppName, appVersion, tblksMsg];
+            launchWindowText = @"SurfSafeMDSVPN was successfully replaced.\n\nDo you wish to launch the new full version of SurfSafeVPN now?";
+        }
 #endif
         else {
             authorizationText = [NSString stringWithFormat:

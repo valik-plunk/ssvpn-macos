@@ -385,22 +385,33 @@ int main(int argc, char *argv[])
         }
         
 #ifndef TRIAL_VERSION_BUILD
-        //for full version looking for trial version and move it to the trash
-        NSString *trialPath = TRIAL_APP_PATH;
-        if (  [gFileMgr fileExistsAtPath: trialPath]  ) {
-            errorExitIfAnySymlinkInPath(trialPath, 1);
-            if (  [[NSWorkspace sharedWorkspace] performFileOperation: NSWorkspaceRecycleOperation
-                                                               source: @"/Applications"
-                                                          destination: @""
-                                                                files: [NSArray arrayWithObject:TRIAL_APP_NAME]
-                                                                  tag: nil]  ) {
-                appendLog([NSString stringWithFormat: @"Moved %@ to the Trash", trialPath]);
-            } else {
-                appendLog([NSString stringWithFormat: @"Unable to move %@ to the Trash", trialPath]);
-                errorExit();
-            }
+        NSString *otherAppPath = FULL_APP_PATH;
+        NSString *otherAppName = FULL_APP_NAME;
+        if ([otherAppPath isEqualToString:CURRENT_BUILD_APP_PATH]) {
+            otherAppPath = FULL_MDS_APP_PATH;
+            otherAppName = FULL_MDS_APP_NAME;
         }
-        
+        NSArray *toRemovePaths = [NSArray arrayWithObjects:TRIAL_APP_PATH, TRIAL_MDS_APP_PATH, otherAppPath, nil];
+        NSArray *toRemoveNames = [NSArray arrayWithObjects:TRIAL_APP_NAME, TRIAL_MDS_APP_NAME, otherAppName, nil];
+        int objectIndex = 0;
+        //for full version looking for trial version and move it to the trash
+        for (NSString *removePath in toRemovePaths) {
+            if (  [gFileMgr fileExistsAtPath: removePath]  ) {
+                errorExitIfAnySymlinkInPath(removePath, 1);
+                NSString * removeName = [toRemoveNames objectAtIndex:objectIndex];
+                if (  [[NSWorkspace sharedWorkspace] performFileOperation: NSWorkspaceRecycleOperation
+                                                                   source: @"/Applications"
+                                                              destination: @""
+                                                                    files: [NSArray arrayWithObject:removeName]
+                                                                      tag: nil]  ) {
+                    appendLog([NSString stringWithFormat: @"Moved %@ to the Trash", removePath]);
+                } else {
+                    appendLog([NSString stringWithFormat: @"Unable to move %@ to the Trash", removePath]);
+                    errorExit();
+                }
+            }
+            objectIndex++;
+        }
 #endif
     }
     

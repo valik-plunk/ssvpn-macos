@@ -311,6 +311,8 @@ typedef enum
 // Section for enable trial version build
 //#define TRIAL_VERSION_BUILD 1
 
+#define MDS_VERSION_BUILD 1
+
 //*************************************************************************************************
 // Section for setting application name
 #define TRIAL_APP_NAME @"SurfSafeFreeTrial.app"
@@ -318,11 +320,26 @@ typedef enum
 #define FULL_APP_NAME @"SurfSafeVPN.app"
 #define FULL_APP_PATH @"/Applications/SurfSafeVPN.app"
 
+#define TRIAL_MDS_APP_NAME @"SurfSafeMDSFreeTrial.app"
+#define TRIAL_MDS_APP_PATH @"/Applications/SurfSafeMDSFreeTrial.app"
+#define FULL_MDS_APP_NAME @"SurfSafeMDSVPN.app"
+#define FULL_MDS_APP_PATH @"/Applications/SurfSafeMDSVPN.app"
+
 #ifdef TRIAL_VERSION_BUILD
-    #define CURRENT_BUILD_APP_NAME TRIAL_APP_NAME
-    #define CURRENT_BUILD_APP_PATH TRIAL_APP_PATH
+    #ifdef MDS_VERSION_BUILD
+        #define CURRENT_BUILD_APP_NAME TRIAL_MDS_APP_NAME
+        #define CURRENT_BUILD_APP_PATH TRIAL_MDS_APP_PATH
+    #else
+        #define CURRENT_BUILD_APP_NAME TRIAL_APP_NAME
+        #define CURRENT_BUILD_APP_PATH TRIAL_APP_PATH
+    #endif
 #else
-    #define CURRENT_BUILD_APP_NAME FULL_APP_NAME
-    #define CURRENT_BUILD_APP_PATH FULL_APP_PATH
+#ifdef MDS_VERSION_BUILD
+#define CURRENT_BUILD_APP_NAME FULL_MDS_APP_NAME
+#define CURRENT_BUILD_APP_PATH FULL_MDS_APP_PATH
+#else
+#define CURRENT_BUILD_APP_NAME FULL_APP_NAME
+#define CURRENT_BUILD_APP_PATH FULL_APP_PATH
+#endif
 #endif
 

@@ -499,7 +499,7 @@
 		CE8E6CBB1550E4B20087E9D2 /* SurfSafeVPN_32x32_active.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = SurfSafeVPN_32x32_active.icns; sourceTree = "<group>"; };
 		CE8E6CBD1550E4B20087E9D2 /* SurfSafeVPN_32x32_desible.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = SurfSafeVPN_32x32_desible.icns; sourceTree = "<group>"; };
 		CE8E6CC71550E5560087E9D2 /* SurfSafeVPN.sdef */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = SurfSafeVPN.sdef; sourceTree = "<group>"; };
-		CE8E6D6F1550E5F90087E9D2 /* SurfSafeVPN.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SurfSafeVPN.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CE8E6D6F1550E5F90087E9D2 /* SurfSafeMDSVPN.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SurfSafeMDSVPN.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE8E6D7915511A2F0087E9D2 /* logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo.png; sourceTree = "<group>"; };
 		CEB1B1E015526E58000BC247 /* crypt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = crypt.h; sourceTree = "<group>"; };
 		CEB1B1E115526E58000BC247 /* ioapi.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ioapi.c; sourceTree = "<group>"; };
@@ -688,7 +688,7 @@
 				6317943E118D7E820057ACAF /* atsystemstart */,
 				638A1FFC135CC35100FB932C /* standardize-scutil-output */,
 				63AA8E581492C75200C791C9 /* process-network-changes */,
-				CE8E6D6F1550E5F90087E9D2 /* SurfSafeVPN.app */,
+				CE8E6D6F1550E5F90087E9D2 /* SurfSafeMDSVPN.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1117,7 +1117,7 @@
 			name = SurfSafeVPN;
 			productInstallPath = "$(HOME)/Applications";
 			productName = Tunnelblick;
-			productReference = CE8E6D6F1550E5F90087E9D2 /* SurfSafeVPN.app */;
+			productReference = CE8E6D6F1550E5F90087E9D2 /* SurfSafeMDSVPN.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -2140,7 +2140,7 @@
 					"\"$(SRCROOT)/../third_party/openssl-1.0.1c\"",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
-				PRODUCT_NAME = SurfSafeVPN;
+				PRODUCT_NAME = SurfSafeMDSVPN;
 				PROVISIONING_PROFILE = "";
 				SDKROOT = macosx;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -2170,7 +2170,7 @@
 					"\"$(SRCROOT)/../third_party/openssl-1.0.1c\"",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
-				PRODUCT_NAME = SurfSafeVPN;
+				PRODUCT_NAME = SurfSafeMDSVPN;
 				PROVISIONING_PROFILE = "";
 				SDKROOT = macosx;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -2199,7 +2199,7 @@
 					"\"$(SRCROOT)/../third_party/openssl-1.0.1c\"",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
-				PRODUCT_NAME = SurfSafeVPN;
+				PRODUCT_NAME = SurfSafeMDSVPN;
 				PROVISIONING_PROFILE = "";
 				SDKROOT = macosx;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -2231,7 +2231,7 @@
 					"\"$(SRCROOT)/../third_party/openssl-1.0.1c\"",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
-				PRODUCT_NAME = SurfSafeVPN;
+				PRODUCT_NAME = SurfSafeMDSVPN;
 				PROVISIONING_PROFILE = "";
 				SDKROOT = macosx;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -2264,7 +2264,7 @@
 					"\"$(SRCROOT)/../third_party/openssl-1.0.1c\"",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
-				PRODUCT_NAME = SurfSafeVPN;
+				PRODUCT_NAME = SurfSafeMDSVPN;
 				PROVISIONING_PROFILE = "";
 				SDKROOT = macosx;
 				VERSIONING_SYSTEM = "apple-generic";

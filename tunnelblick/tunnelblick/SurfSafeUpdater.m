@@ -51,8 +51,12 @@ extern NSFileManager        * gFileMgr;
     NSDictionary * infoPlist = [[NSBundle mainBundle] infoDictionary];
     if (infoPlist)
     {
-        
+
+#ifdef MDS_VERSION_BUILD
+        NSString *requestURL = @"http://cfg.surfsafevpn.com/mds/servers.mac.xml";
+#else
         NSString *requestURL = @"http://cfg.surfsafevpn.com/servers.mac.xml";
+#endif
         
         NSLog(@"Check for SurfSafeVPN update %@ ", requestURL);
         
@@ -161,6 +165,18 @@ extern NSFileManager        * gFileMgr;
     }
 }
 
+-(unsigned long) getVersionFromString: (NSString *) version {
+    NSArray *appVersionItems = [version componentsSeparatedByString:@"."];
+    int i, cnt = [appVersionItems count];
+    int multiplier = 1;
+    unsigned long fullVersion = 0;
+    for (i=cnt-1; i >= 0; i--) {
+        fullVersion = fullVersion + [[appVersionItems objectAtIndex:i] intValue] * multiplier;
+        multiplier = multiplier *100;
+    }
+    return fullVersion;
+}
+
 -(void) parser: (NSXMLParser *) parser didStartElement:(NSString *)elementName namespaceURI:(NSString *)namespaceURI qualifiedName:(NSString *)qName attributes:(NSDictionary *)attributeDict
 {    
     NSDictionary * infoPlist = [[NSBundle mainBundle] infoDictionary];
@@ -169,9 +185,11 @@ extern NSFileManager        * gFileMgr;
     if ([elementName isEqualToString:@"application"]){
         //NSString *os = [attributeDict objectForKey:@"os"];
         //if ([os isEqualToString:@"mac"]){
-            float appVersion = [[[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleVersion"] floatValue];
+            NSString *appVersionString = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleVersion"];
+            unsigned long appVersion = [self getVersionFromString:appVersionString];
+        
             newVersion = [attributeDict objectForKey:@"version"];
-            float serverVersion = [newVersion floatValue];
+            unsigned long serverVersion = [self getVersionFromString:newVersion];
 
             [hosts setObject: newVersion forKey:@"version"];
             if (appVersion < serverVersion){                
